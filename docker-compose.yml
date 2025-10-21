@@ -1,0 +1,86 @@
+# # docker-compose.yml (en la carpeta 02-keycloak)
+# services:
+#   # --- Frontend (Next.js) ---
+#   frontend:
+#     build:
+#       context: ./task-frontend
+#       args:
+#         - NEXT_PUBLIC_API_URL=http://localhost:3001
+#     ports:
+#       - "3000:3000"
+#     depends_on:
+#       - api # Dependencia simple: solo verifica que el contenedor haya arrancado
+#     environment:
+#       # URL que usa el Server Component (interna)
+#       - API_URL=http://api:3001 
+#       # URL que usa el Client Component (pública/navegador)
+#       - NEXT_PUBLIC_API_URL=http://localhost:3001 
+
+#   # --- Backend (NestJS) ---
+#   api:
+#     build:
+#       context: ./task-api
+#     ports:
+#       - "3001:3001"
+#     depends_on:
+#       - db
+#     environment:
+#       # Conexión a la base de datos (usa el nombre del servicio: db)
+#       - DATABASE_URL=postgresql://user:password@db:5432/taskdb?schema=public
+
+#   # --- Base de Datos (PostgreSQL) ---
+#   db:
+#     image: postgres:15
+#     restart: always
+#     environment:
+#       POSTGRES_USER: user
+#       POSTGRES_PASSWORD: password
+#       POSTGRES_DB: taskdb
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   postgres_data:
+services:
+  frontend:
+    build:
+      context: ./task-frontend
+      # --- ESTA ES LA CORRECCIÓN ---
+      # 'args' debe estar anidado dentro de 'build'
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:3001
+      # ----------------------------
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - API_URL=http://api:3001
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+
+  api:
+    build:
+      context: ./task-api
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/taskdb?schema=public
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: taskdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
