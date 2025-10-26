@@ -55,8 +55,8 @@ export function TaskList({ title, tasks, onDelete, onToggleComplete, onTaskUpdat
         {tasks.map(task => (
           <div key={task.id} className={`p-4 rounded-lg flex flex-col justify-between ${task.completed ? 'bg-gray-900 opacity-60' : 'bg-gray-800'}`}>
             <div>
-              <h3 className={`text-xl font-semibold text-white ${task.completed && 'line-through'}`}>{task.title}</h3>
-              <p className="text-gray-400 mt-2">{task.description}</p>
+              <h3 className={`text-xl font-semibold text-white ${task.completed && 'line-through'}`}>Tarea: {task.title}</h3>
+              <p className="text-gray-400 mt-2">Descripcion: {task.description}</p>
             </div>
             <div className="flex justify-end mt-4 gap-2">
               <CompletedTaskButton task={task} onToggle={onToggleComplete} />
