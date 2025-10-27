@@ -58,3 +58,68 @@
 //     return payload; 
 //   }
 // }
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { JwksClient } from 'jwks-rsa';
+import { Buffer } from 'buffer'; // Asegúrate que Buffer esté importado
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  // Ya no necesitamos definir keycloakUrl y keycloakAudience aquí
+  private jwksClient: JwksClient;
+
+  constructor() {
+    // LLamada a super() va primero
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKeyProvider: (request, rawJwtToken, done) => {
+        // Definimos la URL base aquí directamente
+        const keycloakUrl = 'http://localhost:8080/realms/task-app'; 
+
+        // Inicializamos el cliente JWKS si no existe
+        if (!this.jwksClient) {
+          this.jwksClient = new JwksClient({
+            jwksUri: `${keycloakUrl}/protocol/openid-connect/certs`,
+            cache: true,
+            rateLimit: true,
+            jwksRequestsPerMinute: 5,
+          });
+        }
+
+        try {
+          const decodedHeader = JSON.parse(
+            Buffer.from(rawJwtToken.split('.')[0], 'base64url').toString('utf-8'),
+          );
+          const kid = decodedHeader.kid;
+
+          if (!kid) {
+             return done(new UnauthorizedException('Token header missing Key ID (kid).'), false);
+          }
+
+          this.jwksClient.getSigningKey(kid, (err, key) => {
+            if (err || !key) {
+               return done(new UnauthorizedException('Failed to get signing key or key not found.'), false);
+            }
+            const signingKey = key.getPublicKey();
+            done(null, signingKey);
+          });
+        } catch (error) {
+           done(new UnauthorizedException('Invalid token header.'), false);
+        }
+      },
+      // --- CORRECCIÓN AQUÍ: Usamos los valores directamente ---
+      audience: 'task-api-client', // Client ID del backend
+      issuer: 'http://localhost:8080/realms/task-app', // URL del Realm
+      // ----------------------------------------------------
+      algorithms: ['RS256'],
+    });
+  }
+
+  async validate(payload: any) {
+    // El método validate se queda igual
+    return payload;
+  }
+}
+
