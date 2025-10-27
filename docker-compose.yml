@@ -1,61 +1,17 @@
-# # docker-compose.yml (en la carpeta 02-keycloak)
-# services:
-#   # --- Frontend (Next.js) ---
-#   frontend:
-#     build:
-#       context: ./task-frontend
-#       args:
-#         - NEXT_PUBLIC_API_URL=http://localhost:3001
-#     ports:
-#       - "3000:3000"
-#     depends_on:
-#       - api # Dependencia simple: solo verifica que el contenedor haya arrancado
-#     environment:
-#       # URL que usa el Server Component (interna)
-#       - API_URL=http://api:3001 
-#       # URL que usa el Client Component (pública/navegador)
-#       - NEXT_PUBLIC_API_URL=http://localhost:3001 
-
-#   # --- Backend (NestJS) ---
-#   api:
-#     build:
-#       context: ./task-api
-#     ports:
-#       - "3001:3001"
-#     depends_on:
-#       - db
-#     environment:
-#       # Conexión a la base de datos (usa el nombre del servicio: db)
-#       - DATABASE_URL=postgresql://user:password@db:5432/taskdb?schema=public
-
-#   # --- Base de Datos (PostgreSQL) ---
-#   db:
-#     image: postgres:15
-#     restart: always
-#     environment:
-#       POSTGRES_USER: user
-#       POSTGRES_PASSWORD: password
-#       POSTGRES_DB: taskdb
-#     ports:
-#       - "5432:5432"
-#     volumes:
-#       - postgres_data:/var/lib/postgresql/data
-
-# volumes:
-#   postgres_data:
 services:
   frontend:
     build:
       context: ./task-frontend
-      # --- ESTA ES LA CORRECCIÓN ---
-      # 'args' debe estar anidado dentro de 'build'
       args:
-        - NEXT_PUBLIC_API_URL=http://localhost:3001
-      # ----------------------------
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001}
     ports:
       - "3000:3000"
+    # --- CORRECCIÓN AQUÍ ---
+    # Usamos la sintaxis de mapa (clave: valor) en lugar de lista (-)
     depends_on:
-      - api
+      api: # El nombre del servicio como clave
+        condition: service_started # La condición como valor
+    # -----------------------
     environment:
       - API_URL=http://api:3001
       - NEXT_PUBLIC_API_URL=http://localhost:3001
@@ -66,7 +22,8 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - db
+      db: 
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/taskdb?schema=public
 
@@ -77,10 +34,36 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: taskdb
+      POSTGRES_PASSWORD_HASHING_METHOD: md5 
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d 
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d taskdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.0 
+    container_name: keycloak
+    ports:
+      - "8080:8080" 
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=db 
+      - KC_DB_URL_DATABASE=keycloakdb 
+      - KC_DB_USERNAME=user 
+      - KC_DB_PASSWORD=password 
+      - KC_DB_SCHEMA=public
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["start-dev"]
 
 volumes:
   postgres_data:
